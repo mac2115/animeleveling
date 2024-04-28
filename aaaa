@@ -1,0 +1,418 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local plr = Players.LocalPlayer
+local clonef = clonefunction
+local NextFrame = RunService.Heartbeat
+local ForceStop = false
+local loading = clonef(loadstring)
+local fruits = {
+	"Sand",
+	"Bomb",
+	"Smoke",
+	"Rubber",
+	"Falcon",
+	"Gas",
+	"Chop",
+	"Barrier",
+	"Ice-Ice",
+	"Darkness",
+	"Light",
+	"Flame",
+	"Magma",
+	"Paw",
+	"String",
+	"Love",
+	"Quake",
+	"Phoenix",
+	"Gravity",
+	"Dragon",
+	"Ts-Rubber",
+	"Magnet",
+	"Ice-Ice V2",
+	"MagmaV2",
+	"Dough",
+	"Ope-Ope",
+	"Leopard",
+	"Venom",
+	"Lightning",
+	"Nika",
+	"DragonV2",
+	"Soul",
+	"DarkQuake",
+}
+getgenv().Settings = {
+	Autospin = { Toggle = false, fastspin = false, fruits = {} },
+	Fly = { Toggle = false, Speed = 100 },
+	Speed = { Toggle = false, Speed = 100 },
+	InfJump = false,
+	JumpHeight = 50,
+	Noclip = false,
+	Autoskill = false,
+	Autoboss = false,
+}
+
+--[[//ROADMAP
+    AUTOFARM BOSSES - to be done
+    AUTO USE SKILLS - done
+    HOP SERVERS FOR BOSSES - to be done
+
+	---
+    AUTO ROLL FRUIT done
+    STOP IF LEGENDARY OR MYTHICS done
+    FAST SPIN SUPPORT done
+]]
+
+--//AUTO USE SKILLS
+
+local use_skills = ReplicatedStorage.ReplicatorNoYield
+function autouseskills()
+	if not plr.Character or not getgenv().Settings.Autoskill then
+		return
+	end
+	local fruit = plr.MAIN_DATA.Slots[plr.MAIN_DATA.Slot.Value].Value
+	for i, v in pairs(plr.Backpack:GetChildren()) do
+		use_skills:FireServer(fruit, string.gsub(v.Name, " ", ""), {})
+	end
+	task.wait(0.5)
+end
+
+--//AUTOSPIN
+local replicator = ReplicatedStorage.Replicator
+function autospin()
+	if not getgenv().Settings.Autospin.Toggle then
+		return
+	end
+	local slot = plr.MAIN_DATA.Slot.Value
+	if plr.MAIN_DATA.Slots then
+		for i, v in pairs(plr.MAIN_DATA.Slots:GetChildren()) do
+			if v.Name:match(slot) then
+				if getgenv().Settings.Autospin.fruits[v.Value] == true then
+					print("got the wanted fruit")
+				else
+					if not getgenv().Settings.Autospin.fastspin then
+						replicator:InvokeServer("FruitsHandler", "Spin", {})
+					else
+						replicator:InvokeServer("FruitsHandler", "Spin", { ["Type"] = "Fast" })
+					end
+				end
+			end
+		end
+	end
+end
+
+--//AUTOFARM
+_G.queued = false
+function autoboss()
+	if not plr.Character or not getgenv().Settings.Autoboss then
+		return
+	end
+	for i, v in pairs(Workspace.Characters.NPCs:GetChildren()) do
+		if v.Name ~= "Respawn Dummy" then
+			plr.Character.HumanoidRootPart.CFrame = v.HumanoidRootPart.CFrame
+				* CFrame.new(0, 10, 0)
+				* CFrame.Angles(math.rad(-90), 0, 0)
+			replicator:InvokeServer("Core", "M1", {})
+		else
+			if _G.queued then
+				return
+			end
+			queue_on_teleport([[]])
+			queue_on_teleport([[getgenv().Settings = {
+				Autospin = { Toggle = false, fastspin = false, fruits = {} },
+				Fly = { Toggle = false, Speed = 100 },
+				Speed = { Toggle = false, Speed = 100 },
+				InfJump = false,
+				JumpHeight = 50,
+				Noclip = false,
+				Autoskill = false,
+				Autoboss = true,
+			}]])
+			_G.queued = true
+		end
+	end
+end
+
+--//MISC FUNCS
+
+local UserInputService = game:GetService("UserInputService")
+local walkie = nil
+
+function speed()
+	if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+		if getgenv().Settings.Speed.Toggle then
+			if walkie == nil then
+				walkie = Instance.new("BodyVelocity")
+			end
+			walkie.Name = "Lolywap"
+			walkie.MaxForce = Vector3.new(1000000000, 0, 10000000000)
+			walkie.Parent = plr.Character.HumanoidRootPart
+			if
+				plr.Character.Humanoid.MoveDirection.Magnitude ~= 0
+				and plr.Character.Humanoid.MoveDirection ~= Vector3.new(0, 0, 0)
+			then
+				walkie.Velocity = plr.Character.Humanoid.MoveDirection * getgenv().Settings.Speed.Speed
+			else
+				walkie.Velocity = plr.Character.Humanoid.MoveDirection
+			end
+		elseif walkie ~= nil and not getgenv().Settings.Speed.Toggle then
+			walkie.Parent = nil
+		end
+	end
+end
+
+function infjump()
+	if not getgenv().Settings.InfJump then
+		return
+	end
+	if
+		plr.Character
+		and plr.Character:FindFirstChild("HumanoidRootPart")
+		and UserInputService:IsKeyDown(Enum.KeyCode.Space)
+	then
+		plr.Character.HumanoidRootPart.Velocity = Vector3.new(
+			plr.Character.HumanoidRootPart.Velocity.X,
+			getgenv().Settings.JumpHeight,
+			plr.Character.HumanoidRootPart.Velocity.Z
+		)
+	end
+	task.wait(0.1)
+end
+
+getgenv().Control = {
+	left = 0,
+	right = 0,
+	back = 0,
+	forward = 0,
+}
+
+game:GetService("UserInputService").InputBegan:Connect(function(k, gameProcessedEvent)
+	if not gameProcessedEvent then
+		if k.KeyCode == Enum.KeyCode.W then
+			getgenv().Control.forward = -1
+		elseif k.KeyCode == Enum.KeyCode.S then
+			getgenv().Control.back = 1
+		elseif k.KeyCode == Enum.KeyCode.A then
+			getgenv().Control.left = -1
+		elseif k.KeyCode == Enum.KeyCode.D then
+			getgenv().Control.right = 1
+		end
+	end
+end)
+
+game:GetService("UserInputService").InputEnded:Connect(function(k, gameProcessedEvent)
+	if not gameProcessedEvent then
+		if k.KeyCode == Enum.KeyCode.W then
+			getgenv().Control.forward = 0
+		elseif k.KeyCode == Enum.KeyCode.S then
+			getgenv().Control.back = 0
+		elseif k.KeyCode == Enum.KeyCode.A then
+			getgenv().Control.left = 0
+		elseif k.KeyCode == Enum.KeyCode.D then
+			getgenv().Control.right = 0
+		end
+	end
+end)
+
+function getvector()
+	return Vector3.new(
+		getgenv().Control.left + getgenv().Control.right,
+		0,
+		getgenv().Control.forward + getgenv().Control.back
+	)
+end
+--misc stuff
+
+local bdv = nil
+local camera = Workspace.CurrentCamera
+function fly()
+	if getgenv().Settings.Fly.Toggle and not getgenv().Settings.Speed.Toggle then
+		if bdv == nil then
+			bdv = Instance.new("BodyVelocity")
+		end
+		bdv.Name = "Flylolwap"
+		bdv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+		bdv.Parent = plr.Character.HumanoidRootPart
+		if
+			getgenv().Control.left == -1
+			or getgenv().Control.right == 1
+			or getgenv().Control.back == 1
+			or getgenv().Control.forward == -1
+		then
+			if bdv ~= nil then
+				bdv.Velocity = camera.CFrame:VectorToWorldSpace(getvector() * getgenv().Settings.Fly.Speed)
+			else
+				return
+			end
+		else
+			if bdv ~= nil then
+				bdv.Velocity = camera.CFrame:VectorToWorldSpace(getvector())
+			else
+				return
+			end
+		end
+	else
+		if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and bdv then
+			bdv.Parent = nil
+		end
+	end
+end
+
+function noclip()
+	if getgenv().Settings.Noclip then
+		if not plr.Character then
+			return
+		end
+		for i, v in next, plr.Character:GetChildren() do
+			if v:IsA("Part") and not string.find(v.Name, "Leg") then
+				v.CanCollide = false
+			end
+		end
+	else
+		if not plr.Character then
+			return
+		end
+		for i, v in next, plr.Character:GetChildren() do
+			if v:IsA("Part") and not string.find(v.Name, "Leg") then
+				v.CanCollide = true
+			end
+		end
+	end
+end
+
+--//UIS
+
+local Fluent = loading(game:HttpGet("https://raw.githubusercontent.com/Alan0947383/Daddy-dad/main/Library.lua.txt"))()
+local SaveManager =
+	loading(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
+local InterfaceManager =
+	loading(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
+
+local Window = Fluent:CreateWindow({
+	Title = "Fluent " .. Fluent.Version,
+	SubTitle = "by dawid",
+	TabWidth = 160,
+	Size = UDim2.fromOffset(580, 460),
+	Acrylic = true,
+	Theme = "Dark",
+	MinimizeKey = Enum.KeyCode.LeftControl,
+})
+
+local Tabs = {
+	Main = Window:AddTab({ Title = "Main", Icon = "" }),
+	Misc = Window:AddTab({ Title = "Misc", Icon = "" }),
+	Settings = Window:AddTab({ Title = "Settings", Icon = "settings" }),
+}
+local Options = Fluent.Options
+
+local Toggle = Tabs.Main:AddToggle("Autoskill", { Title = "AutoSkill toggle", Default = false })
+
+Toggle:OnChanged(function()
+	getgenv().Settings.Autoskill = Options.Autoskill.Value
+end)
+
+local Toggle = Tabs.Main:AddToggle("MyToggle", { Title = "Autospin toggle", Default = false })
+
+Toggle:OnChanged(function()
+	getgenv().Settings.Autospin.Toggle = Options.MyToggle.Value
+end)
+
+local Toggle = Tabs.Main:AddToggle("Toggle", { Title = "Fastspin toggle", Default = false })
+
+Toggle:OnChanged(function()
+	getgenv().Settings.Autospin.fastspin = Options.Toggle.Value
+end)
+
+local MultiDropdown = Tabs.Main:AddDropdown("MultiDropdown", {
+	Title = "Fruit wanted:",
+	Description = "",
+	Values = fruits,
+	Multi = true,
+	Default = { "Sand" },
+})
+
+MultiDropdown:SetValue({
+	Sand = false,
+})
+
+MultiDropdown:OnChanged(function(Value)
+	getgenv().Settings.Autospin.fruits = Value
+end)
+
+local Toggle = Tabs.Misc:AddToggle("Fly", { Title = "Fly toggle", Default = false })
+
+Toggle:OnChanged(function()
+	getgenv().Settings.Fly.Toggle = Options.Fly.Value
+end)
+
+local Slider = Tabs.Misc:AddSlider("Slider", {
+	Title = "Fly Speed",
+	Description = "",
+	Default = 100,
+	Min = 1,
+	Max = 350,
+	Rounding = 0,
+	Callback = function(Value)
+		getgenv().Settings.Fly.Speed = Value
+	end,
+})
+
+local Toggle = Tabs.Misc:AddToggle("Speed", { Title = "Walkspeed toggle", Default = false })
+
+Toggle:OnChanged(function()
+	getgenv().Settings.Speed.Toggle = Options.Speed.Value
+end)
+
+local Slider = Tabs.Misc:AddSlider("Slider", {
+	Title = "WalkSpeed",
+	Description = "",
+	Default = 100,
+	Min = 1,
+	Max = 350,
+	Rounding = 0,
+	Callback = function(Value)
+		getgenv().Settings.Speed.Speed = Value
+	end,
+})
+
+local Toggle = Tabs.Misc:AddToggle("Noclip", { Title = "Noclip toggle", Default = false })
+
+Toggle:OnChanged(function()
+	getgenv().Settings.Noclip = Options.Noclip.Value
+end)
+
+local Toggle = Tabs.Misc:AddToggle("InfJump", { Title = "Infjump toggle", Default = false })
+
+Toggle:OnChanged(function()
+	getgenv().Settings.InfJump = Options.InfJump.Value
+end)
+
+SaveManager:SetLibrary(Fluent)
+InterfaceManager:SetLibrary(Fluent)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({})
+InterfaceManager:SetFolder("FluentScriptHub")
+SaveManager:SetFolder("FluentScriptHub/specific-game")
+InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+SaveManager:BuildConfigSection(Tabs.Settings)
+Window:SelectTab(1)
+SaveManager:LoadAutoloadConfig()
+
+--//LOOPS
+task.spawn(function()
+	RunService.Heartbeat:Connect(function()
+		fly()
+		noclip()
+		infjump()
+		speed()
+		autospin()
+	end)
+end)
+
+task.spawn(function()
+	while true do
+		task.wait()
+		autouseskills()
+	end
+end)
